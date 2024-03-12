@@ -126,10 +126,7 @@ export class Lucid {
     if (this.network === "Custom") {
       throw new Error("Cannot switch when on custom network.");
     }
-    const lucid = await Lucid.new(
-      provider,
-      network,
-    );
+    const lucid = await Lucid.new(provider, network);
     this.txBuilderConfig = lucid.txBuilderConfig;
     this.provider = provider || this.provider;
     this.network = network || this.network;
@@ -156,10 +153,11 @@ export class Lucid {
     payload: Payload,
     signedMessage: SignedMessage,
   ): boolean {
-    const { paymentCredential, stakeCredential, address: { hex: addressHex } } =
-      this.utils.getAddressDetails(
-        address,
-      );
+    const {
+      paymentCredential,
+      stakeCredential,
+      address: { hex: addressHex },
+    } = this.utils.getAddressDetails(address);
     const keyHash = paymentCredential?.hash || stakeCredential?.hash;
     if (!keyHash) throw new Error("Not a valid address provided.");
 
@@ -216,7 +214,7 @@ export class Lucid {
       case 333:
       case 444: {
         const utxo = await this.utxoByUnit(toUnit(policyId, name, 100));
-        const metadata = await this.datumOf(utxo) as Constr<Data>;
+        const metadata = (await this.datumOf(utxo)) as Constr<Data>;
         return Data.toJson(metadata.fields[0]);
       }
       default:
@@ -248,24 +246,43 @@ export class Lucid {
           paymentCredentialOf(await this.wallet.address()),
         );
       },
-      getUtxosCore: async (): Promise<C.TransactionUnspentOutputs> => {
-        const utxos = await this.utxosAt(
+      getUtxosCore: async (chain): Promise<C.TransactionUnspentOutputs> => {
+        let utxos = await this.utxosAt(
           paymentCredentialOf(await this.wallet.address()),
         );
+
+        if (chain) {
+          // Remove spent UTxOs
+          utxos = utxos.filter((utxo) => {
+            return !this.wallet.spentUTxOs?.find(
+              (sUtxo) =>
+                utxo.txHash === sUtxo.txHash &&
+                utxo.outputIndex === sUtxo.outputIndex,
+            );
+          });
+          utxos.push(...(this.wallet.availUTxOs || []));
+        }
+
         const coreUtxos = C.TransactionUnspentOutputs.new();
         utxos.forEach((utxo) => {
           coreUtxos.add(utxoToCore(utxo));
         });
+
         return coreUtxos;
+      },
+      setUtxosFromTransaction(spentUTxOs, unspentUTxOs) {
+        const removedUtxos = this.spentUTxOs || [];
+        const availUtxos = this.availUTxOs || [];
+
+        this.spentUTxOs = [...removedUtxos, ...spentUTxOs];
+        this.availUTxOs = [...availUtxos, ...unspentUTxOs];
       },
       // deno-lint-ignore require-await
       getDelegation: async (): Promise<Delegation> => {
         return { poolId: null, rewards: 0n };
       },
       // deno-lint-ignore require-await
-      signTx: async (
-        tx: C.Transaction,
-      ): Promise<C.TransactionWitnessSet> => {
+      signTx: async (tx: C.Transaction): Promise<C.TransactionWitnessSet> => {
         const witness = C.make_vkey_witness(
           C.hash_transaction(tx.body()),
           priv,
@@ -279,8 +296,10 @@ export class Lucid {
         address: Address | RewardAddress,
         payload: Payload,
       ): Promise<SignedMessage> => {
-        const { paymentCredential, address: { hex: hexAddress } } = this.utils
-          .getAddressDetails(address);
+        const {
+          paymentCredential,
+          address: { hex: hexAddress },
+        } = this.utils.getAddressDetails(address);
         const keyHash = paymentCredential?.hash;
 
         const originalKeyHash = pubKeyHash.to_hex();
@@ -309,17 +328,17 @@ export class Lucid {
 
     this.wallet = {
       address: async (): Promise<Address> =>
-        C.Address.from_bytes(
-          fromHex(await getAddressHex()),
-        ).to_bech32(undefined),
+        C.Address.from_bytes(fromHex(await getAddressHex())).to_bech32(
+          undefined,
+        ),
       rewardAddress: async (): Promise<RewardAddress | null> => {
         const [rewardAddressHex] = await api.getRewardAddresses();
         const rewardAddress = rewardAddressHex
           ? C.RewardAddress.from_address(
-            C.Address.from_bytes(fromHex(rewardAddressHex)),
-          )!
-            .to_address()
-            .to_bech32(undefined)
+              C.Address.from_bytes(fromHex(rewardAddressHex)),
+            )!
+              .to_address()
+              .to_bech32(undefined)
           : null;
         return rewardAddress;
       },
@@ -332,12 +351,40 @@ export class Lucid {
         });
         return utxos;
       },
-      getUtxosCore: async (): Promise<C.TransactionUnspentOutputs> => {
+      getUtxosCore: async (chain): Promise<C.TransactionUnspentOutputs> => {
         const utxos = C.TransactionUnspentOutputs.new();
         ((await api.getUtxos()) || []).forEach((utxo) => {
-          utxos.add(C.TransactionUnspentOutput.from_bytes(fromHex(utxo)));
+          const coreUtxo = C.TransactionUnspentOutput.from_bytes(fromHex(utxo));
+
+          if (chain) {
+            const wrappedUTxO = coreToUtxo(coreUtxo);
+            const isSpent = Boolean(
+              this.wallet.spentUTxOs?.find(
+                (u) =>
+                  u.txHash === wrappedUTxO.txHash &&
+                  u.outputIndex === wrappedUTxO.outputIndex,
+              ),
+            );
+            if (isSpent) return;
+          }
+          utxos.add(coreUtxo);
         });
+
+        if (chain) {
+          // Add in the Unpent UTxO's not yet on chain
+          this.wallet.availUTxOs?.forEach((u) => {
+            utxos.add(utxoToCore(u));
+          });
+        }
+
         return utxos;
+      },
+      setUtxosFromTransaction(spentUTxOs, unspentUTxOs) {
+        const removedUtxos = this.spentUTxOs || [];
+        const availUtxos = this.availUTxOs || [];
+
+        this.spentUTxOs = [...removedUtxos, ...spentUTxOs];
+        this.availUTxOs = [...availUtxos, ...unspentUTxOs];
       },
       getDelegation: async (): Promise<Delegation> => {
         const rewardAddr = await this.wallet.rewardAddress();
@@ -346,9 +393,7 @@ export class Lucid {
           ? await this.delegationAt(rewardAddr)
           : { poolId: null, rewards: 0n };
       },
-      signTx: async (
-        tx: C.Transaction,
-      ): Promise<C.TransactionWitnessSet> => {
+      signTx: async (tx: C.Transaction): Promise<C.TransactionWitnessSet> => {
         const witnessSet = await api.signTx(toHex(tx.to_bytes()), true);
         return C.TransactionWitnessSet.from_bytes(fromHex(witnessSet));
       },
@@ -371,50 +416,78 @@ export class Lucid {
    * Emulates a wallet by constructing it with the utxos and an address.
    * If utxos are not set, utxos are fetched from the provided address.
    */
-  selectWalletFrom({
-    address,
-    utxos,
-    rewardAddress,
-  }: ExternalWallet): Lucid {
+  selectWalletFrom({ address, utxos, rewardAddress }: ExternalWallet): Lucid {
     const addressDetails = this.utils.getAddressDetails(address);
     this.wallet = {
       // deno-lint-ignore require-await
       address: async (): Promise<Address> => address,
       // deno-lint-ignore require-await
       rewardAddress: async (): Promise<RewardAddress | null> => {
-        const rewardAddr = !rewardAddress && addressDetails.stakeCredential
-          ? (() => {
-            if (addressDetails.stakeCredential.type === "Key") {
-              return C.RewardAddress.new(
-                this.network === "Mainnet" ? 1 : 0,
-                C.StakeCredential.from_keyhash(
-                  C.Ed25519KeyHash.from_hex(
-                    addressDetails.stakeCredential.hash,
+        const rewardAddr =
+          !rewardAddress && addressDetails.stakeCredential
+            ? (() => {
+                if (addressDetails.stakeCredential.type === "Key") {
+                  return C.RewardAddress.new(
+                    this.network === "Mainnet" ? 1 : 0,
+                    C.StakeCredential.from_keyhash(
+                      C.Ed25519KeyHash.from_hex(
+                        addressDetails.stakeCredential.hash,
+                      ),
+                    ),
+                  )
+                    .to_address()
+                    .to_bech32(undefined);
+                }
+                return C.RewardAddress.new(
+                  this.network === "Mainnet" ? 1 : 0,
+                  C.StakeCredential.from_scripthash(
+                    C.ScriptHash.from_hex(addressDetails.stakeCredential.hash),
                   ),
-                ),
-              )
-                .to_address()
-                .to_bech32(undefined);
-            }
-            return C.RewardAddress.new(
-              this.network === "Mainnet" ? 1 : 0,
-              C.StakeCredential.from_scripthash(
-                C.ScriptHash.from_hex(addressDetails.stakeCredential.hash),
-              ),
-            )
-              .to_address()
-              .to_bech32(undefined);
-          })()
-          : rewardAddress;
+                )
+                  .to_address()
+                  .to_bech32(undefined);
+              })()
+            : rewardAddress;
         return rewardAddr || null;
       },
       getUtxos: async (): Promise<UTxO[]> => {
         return utxos ? utxos : await this.utxosAt(paymentCredentialOf(address));
       },
-      getUtxosCore: async (): Promise<C.TransactionUnspentOutputs> => {
+      setUtxosFromTransaction(spentUTxOs, unspentUTxOs) {
+        const removedUtxos = this.spentUTxOs || [];
+        const availUtxos = this.availUTxOs || [];
+
+        this.spentUTxOs = [...removedUtxos, ...spentUTxOs];
+        this.availUTxOs = [...availUtxos, ...unspentUTxOs];
+      },
+      getUtxosCore: async (chain): Promise<C.TransactionUnspentOutputs> => {
         const coreUtxos = C.TransactionUnspentOutputs.new();
-        (utxos ? utxos : await this.utxosAt(paymentCredentialOf(address)))
-          .forEach((utxo) => coreUtxos.add(utxoToCore(utxo)));
+        (utxos
+          ? utxos
+          : await this.utxosAt(paymentCredentialOf(address))
+        ).forEach((utxo) => {
+          const coreUtxo = utxoToCore(utxo); // C.TransactionUnspentOutput.from_bytes(fromHex(utxo));
+
+          if (chain) {
+            const isSpent = Boolean(
+              this.wallet.spentUTxOs?.find(
+                (u) =>
+                  u.txHash === utxo.txHash &&
+                  u.outputIndex === utxo.outputIndex,
+              ),
+            );
+            if (isSpent) return;
+          }
+          coreUtxos.add(coreUtxo);
+        });
+
+        if (chain) {
+          this.wallet.availUTxOs?.forEach((utxo) => {
+            coreUtxos.add(utxoToCore(utxo));
+          });
+        }
+
+        // coreUtxos.add(utxoToCore(utxo)));
         return coreUtxos;
       },
       getDelegation: async (): Promise<Delegation> => {
@@ -461,8 +534,10 @@ export class Lucid {
       },
     );
 
-    const paymentKeyHash = C.PrivateKey.from_bech32(paymentKey).to_public()
-      .hash().to_hex();
+    const paymentKeyHash = C.PrivateKey.from_bech32(paymentKey)
+      .to_public()
+      .hash()
+      .to_hex();
     const stakeKeyHash = stakeKey
       ? C.PrivateKey.from_bech32(stakeKey).to_public().hash().to_hex()
       : "";
@@ -481,11 +556,34 @@ export class Lucid {
       // deno-lint-ignore require-await
       getUtxos: async (): Promise<UTxO[]> =>
         this.utxosAt(paymentCredentialOf(address)),
-      getUtxosCore: async (): Promise<C.TransactionUnspentOutputs> => {
+      setUtxosFromTransaction(spentUtxos, unspentUtxos) {
+        this.spentUTxOs = [...(this.spentUTxOs || []), ...spentUtxos];
+        this.availUTxOs = [...(this.availUTxOs || []), ...unspentUtxos];
+      },
+      getUtxosCore: async (chain): Promise<C.TransactionUnspentOutputs> => {
         const coreUtxos = C.TransactionUnspentOutputs.new();
-        (await this.utxosAt(paymentCredentialOf(address))).forEach((utxo) =>
-          coreUtxos.add(utxoToCore(utxo))
-        );
+        (await this.utxosAt(paymentCredentialOf(address))).forEach((utxo) => {
+          const coreUtxo = utxoToCore(utxo); // C.TransactionUnspentOutput.from_bytes(fromHex(utxo));
+
+          if (chain) {
+            const isSpent = Boolean(
+              this.wallet.spentUTxOs?.find(
+                (u) =>
+                  u.txHash === utxo.txHash &&
+                  u.outputIndex === utxo.outputIndex,
+              ),
+            );
+            if (isSpent) return;
+          }
+          coreUtxos.add(coreUtxo);
+        });
+
+        if (chain) {
+          this.wallet.availUTxOs?.forEach((utxo) => {
+            coreUtxos.add(utxoToCore(utxo));
+          });
+        }
+
         return coreUtxos;
       },
       getDelegation: async (): Promise<Delegation> => {
@@ -495,9 +593,7 @@ export class Lucid {
           ? await this.delegationAt(rewardAddr)
           : { poolId: null, rewards: 0n };
       },
-      signTx: async (
-        tx: C.Transaction,
-      ): Promise<C.TransactionWitnessSet> => {
+      signTx: async (tx: C.Transaction): Promise<C.TransactionWitnessSet> => {
         const utxos = await this.utxosAt(address);
 
         const ownKeyHashes: Array<KeyHash> = [paymentKeyHash, stakeKeyHash];
@@ -527,8 +623,7 @@ export class Lucid {
           paymentCredential,
           stakeCredential,
           address: { hex: hexAddress },
-        } = this.utils
-          .getAddressDetails(address);
+        } = this.utils.getAddressDetails(address);
 
         const keyHash = paymentCredential?.hash || stakeCredential?.hash;
 

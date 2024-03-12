@@ -29,7 +29,11 @@ import {
   toScriptRef,
   utxoToCore,
 } from "../utils/mod.ts";
-import { applyDoubleCborEncoding } from "../utils/utils.ts";
+import {
+  applyDoubleCborEncoding,
+  coreToUtxo,
+  paymentCredentialOf,
+} from "../utils/utils.ts";
 import { Lucid } from "./lucid.ts";
 import { TxComplete } from "./tx_complete.ts";
 
@@ -118,12 +122,12 @@ export class Tx {
         mintAssets,
         redeemer
           ? C.ScriptWitness.new_plutus_witness(
-            C.PlutusWitness.new(
-              C.PlutusData.from_bytes(fromHex(redeemer!)),
-              undefined,
-              undefined,
-            ),
-          )
+              C.PlutusWitness.new(
+                C.PlutusData.from_bytes(fromHex(redeemer!)),
+                undefined,
+                undefined,
+              ),
+            )
           : undefined,
       );
     });
@@ -216,23 +220,21 @@ export class Tx {
     this.tasks.push((that) => {
       const addressDetails = that.lucid.utils.getAddressDetails(rewardAddress);
 
-      if (
-        addressDetails.type !== "Reward" ||
-        !addressDetails.stakeCredential
-      ) {
+      if (addressDetails.type !== "Reward" || !addressDetails.stakeCredential) {
         throw new Error("Not a reward address provided.");
       }
-      const credential = addressDetails.stakeCredential.type === "Key"
-        ? C.StakeCredential.from_keyhash(
-          C.Ed25519KeyHash.from_bytes(
-            fromHex(addressDetails.stakeCredential.hash),
-          ),
-        )
-        : C.StakeCredential.from_scripthash(
-          C.ScriptHash.from_bytes(
-            fromHex(addressDetails.stakeCredential.hash),
-          ),
-        );
+      const credential =
+        addressDetails.stakeCredential.type === "Key"
+          ? C.StakeCredential.from_keyhash(
+              C.Ed25519KeyHash.from_bytes(
+                fromHex(addressDetails.stakeCredential.hash),
+              ),
+            )
+          : C.StakeCredential.from_scripthash(
+              C.ScriptHash.from_bytes(
+                fromHex(addressDetails.stakeCredential.hash),
+              ),
+            );
 
       that.txBuilder.add_certificate(
         C.Certificate.new_stake_delegation(
@@ -243,12 +245,12 @@ export class Tx {
         ),
         redeemer
           ? C.ScriptWitness.new_plutus_witness(
-            C.PlutusWitness.new(
-              C.PlutusData.from_bytes(fromHex(redeemer!)),
-              undefined,
-              undefined,
-            ),
-          )
+              C.PlutusWitness.new(
+                C.PlutusData.from_bytes(fromHex(redeemer!)),
+                undefined,
+                undefined,
+              ),
+            )
           : undefined,
       );
     });
@@ -260,23 +262,21 @@ export class Tx {
     this.tasks.push((that) => {
       const addressDetails = that.lucid.utils.getAddressDetails(rewardAddress);
 
-      if (
-        addressDetails.type !== "Reward" ||
-        !addressDetails.stakeCredential
-      ) {
+      if (addressDetails.type !== "Reward" || !addressDetails.stakeCredential) {
         throw new Error("Not a reward address provided.");
       }
-      const credential = addressDetails.stakeCredential.type === "Key"
-        ? C.StakeCredential.from_keyhash(
-          C.Ed25519KeyHash.from_bytes(
-            fromHex(addressDetails.stakeCredential.hash),
-          ),
-        )
-        : C.StakeCredential.from_scripthash(
-          C.ScriptHash.from_bytes(
-            fromHex(addressDetails.stakeCredential.hash),
-          ),
-        );
+      const credential =
+        addressDetails.stakeCredential.type === "Key"
+          ? C.StakeCredential.from_keyhash(
+              C.Ed25519KeyHash.from_bytes(
+                fromHex(addressDetails.stakeCredential.hash),
+              ),
+            )
+          : C.StakeCredential.from_scripthash(
+              C.ScriptHash.from_bytes(
+                fromHex(addressDetails.stakeCredential.hash),
+              ),
+            );
 
       that.txBuilder.add_certificate(
         C.Certificate.new_stake_registration(
@@ -293,23 +293,21 @@ export class Tx {
     this.tasks.push((that) => {
       const addressDetails = that.lucid.utils.getAddressDetails(rewardAddress);
 
-      if (
-        addressDetails.type !== "Reward" ||
-        !addressDetails.stakeCredential
-      ) {
+      if (addressDetails.type !== "Reward" || !addressDetails.stakeCredential) {
         throw new Error("Not a reward address provided.");
       }
-      const credential = addressDetails.stakeCredential.type === "Key"
-        ? C.StakeCredential.from_keyhash(
-          C.Ed25519KeyHash.from_bytes(
-            fromHex(addressDetails.stakeCredential.hash),
-          ),
-        )
-        : C.StakeCredential.from_scripthash(
-          C.ScriptHash.from_bytes(
-            fromHex(addressDetails.stakeCredential.hash),
-          ),
-        );
+      const credential =
+        addressDetails.stakeCredential.type === "Key"
+          ? C.StakeCredential.from_keyhash(
+              C.Ed25519KeyHash.from_bytes(
+                fromHex(addressDetails.stakeCredential.hash),
+              ),
+            )
+          : C.StakeCredential.from_scripthash(
+              C.ScriptHash.from_bytes(
+                fromHex(addressDetails.stakeCredential.hash),
+              ),
+            );
 
       that.txBuilder.add_certificate(
         C.Certificate.new_stake_deregistration(
@@ -317,12 +315,12 @@ export class Tx {
         ),
         redeemer
           ? C.ScriptWitness.new_plutus_witness(
-            C.PlutusWitness.new(
-              C.PlutusData.from_bytes(fromHex(redeemer!)),
-              undefined,
-              undefined,
-            ),
-          )
+              C.PlutusWitness.new(
+                C.PlutusData.from_bytes(fromHex(redeemer!)),
+                undefined,
+                undefined,
+              ),
+            )
           : undefined,
       );
     });
@@ -337,9 +335,7 @@ export class Tx {
         that.lucid,
       );
 
-      const certificate = C.Certificate.new_pool_registration(
-        poolRegistration,
-      );
+      const certificate = C.Certificate.new_pool_registration(poolRegistration);
 
       that.txBuilder.add_certificate(certificate, undefined);
     });
@@ -357,9 +353,7 @@ export class Tx {
       // This flag makes sure a pool deposit is not required
       poolRegistration.set_is_update(true);
 
-      const certificate = C.Certificate.new_pool_registration(
-        poolRegistration,
-      );
+      const certificate = C.Certificate.new_pool_registration(poolRegistration);
 
       that.txBuilder.add_certificate(certificate, undefined);
     });
@@ -392,12 +386,12 @@ export class Tx {
         C.BigNum.from_str(amount.toString()),
         redeemer
           ? C.ScriptWitness.new_plutus_witness(
-            C.PlutusWitness.new(
-              C.PlutusData.from_bytes(fromHex(redeemer!)),
-              undefined,
-              undefined,
-            ),
-          )
+              C.PlutusWitness.new(
+                C.PlutusData.from_bytes(fromHex(redeemer!)),
+                undefined,
+                undefined,
+              ),
+            )
           : undefined,
       );
     });
@@ -412,15 +406,14 @@ export class Tx {
   addSigner(address: Address | RewardAddress): Tx {
     const addressDetails = this.lucid.utils.getAddressDetails(address);
 
-    if (
-      !addressDetails.paymentCredential && !addressDetails.stakeCredential
-    ) {
+    if (!addressDetails.paymentCredential && !addressDetails.stakeCredential) {
       throw new Error("Not a valid address.");
     }
 
-    const credential = addressDetails.type === "Reward"
-      ? addressDetails.stakeCredential!
-      : addressDetails.paymentCredential!;
+    const credential =
+      addressDetails.type === "Reward"
+        ? addressDetails.stakeCredential!
+        : addressDetails.paymentCredential!;
 
     if (credential.type === "Script") {
       throw new Error("Only key hashes are allowed as signers.");
@@ -526,14 +519,14 @@ export class Tx {
     change?: { address?: Address; outputData?: OutputData };
     coinSelection?: boolean;
     nativeUplc?: boolean;
+    chain?: boolean;
   }): Promise<TxComplete> {
     if (
       [
         options?.change?.outputData?.hash,
         options?.change?.outputData?.asHash,
         options?.change?.outputData?.inline,
-      ].filter((b) => b)
-        .length > 1
+      ].filter((b) => b).length > 1
     ) {
       throw new Error(
         "Not allowed to set hash, asHash and inline at the same time.",
@@ -573,9 +566,7 @@ export class Tx {
       (() => {
         if (options?.change?.outputData?.hash) {
           return C.Datum.new_data_hash(
-            C.DataHash.from_hex(
-              options.change.outputData.hash,
-            ),
+            C.DataHash.from_hex(options.change.outputData.hash),
           );
         } else if (options?.change?.outputData?.asHash) {
           this.txBuilder.add_plutus_data(
@@ -602,14 +593,93 @@ export class Tx {
       })(),
     );
 
-    return new TxComplete(
-      this.lucid,
-      await this.txBuilder.construct(
-        utxos,
-        changeAddress,
-        options?.nativeUplc === undefined ? true : options?.nativeUplc,
-      ),
+    const txb = await this.txBuilder.construct(
+      utxos,
+      changeAddress,
+      options?.nativeUplc === undefined ? true : options?.nativeUplc,
     );
+
+    const txComplete = new TxComplete(this.lucid, txb);
+
+    if (options?.chain) {
+      const walletUtxos = await this.lucid.wallet.getUtxosCore();
+      const body = txb.body();
+      const inputs = body.inputs();
+      const outputs = body.outputs();
+
+      const spentUtxos: UTxO[] = [];
+      const unspentUtxos: UTxO[] = [];
+
+      for (let i = 0; i < inputs.len(); i++) {
+        const txHash = inputs.get(i).transaction_id().to_hex();
+        const index = inputs.get(i).index().to_str();
+        const utxoLength = walletUtxos.len();
+
+        for (let j = 0; j < utxoLength; j++) {
+          const utxo = walletUtxos.get(j);
+
+          const wrappedUTxo = coreToUtxo(utxo);
+
+          if (
+            wrappedUTxo.txHash === txHash &&
+            wrappedUTxo.outputIndex.toString(10) == index
+          ) {
+            spentUtxos.push(wrappedUTxo);
+          }
+        }
+      }
+
+      const walletAddress = await this.lucid.wallet.address();
+      const walletPaymentCred = paymentCredentialOf(walletAddress);
+
+      for (let i = 0; i < outputs.len(); i++) {
+        const output = outputs.get(i);
+
+        const paymentCred = paymentCredentialOf(
+          output.address().to_bech32("addr"),
+        );
+
+        if (paymentCred.hash === walletPaymentCred.hash) {
+          const jsOutput = output.amount().to_js_value() as {
+            coin: string;
+            multiasset: Record<string, Record<string, string>> | null;
+          };
+
+          let assetsValue: Assets = {
+            lovelace: BigInt(jsOutput.coin),
+          };
+
+          if (jsOutput.multiasset) {
+            assetsValue = {
+              ...Object.entries(jsOutput.multiasset).reduce(
+                (accAsset, [policy, policyObj]) => {
+                  Object.entries(policyObj).forEach(([tokenName, amount]) => {
+                    accAsset[`${policy}${tokenName}`] = BigInt(amount);
+                  });
+
+                  return accAsset;
+                },
+                {} as Assets,
+              ),
+              ...assetsValue,
+            };
+          }
+
+          const utxo: UTxO = {
+            address: walletAddress,
+            txHash: txComplete.toHash(),
+            outputIndex: i,
+            assets: assetsValue,
+          };
+
+          unspentUtxos.push(utxo);
+        }
+      }
+
+      this.lucid.wallet.setUtxosFromTransaction(spentUtxos, unspentUtxos);
+    }
+
+    return txComplete;
   }
 
   /** Return the current transaction body in Hex encoded Cbor. */
@@ -626,7 +696,10 @@ export class Tx {
 
 function attachScript(
   tx: Tx,
-  { type, script }:
+  {
+    type,
+    script,
+  }:
     | SpendingValidator
     | MintingPolicy
     | CertificateValidator
@@ -661,16 +734,11 @@ async function createPoolRegistration(
   });
 
   const metadata = poolParams.metadataUrl
-    ? await fetch(
-      poolParams.metadataUrl,
-    )
-      .then((res) => res.arrayBuffer())
+    ? await fetch(poolParams.metadataUrl).then((res) => res.arrayBuffer())
     : null;
 
   const metadataHash = metadata
-    ? C.PoolMetadataHash.from_bytes(
-      C.hash_blake2b256(new Uint8Array(metadata)),
-    )
+    ? C.PoolMetadataHash.from_bytes(C.hash_blake2b256(new Uint8Array(metadata)))
     : null;
 
   const relays = C.Relays.new();
@@ -679,8 +747,8 @@ async function createPoolRegistration(
       case "SingleHostIp": {
         const ipV4 = relay.ipV4
           ? C.Ipv4.new(
-            new Uint8Array(relay.ipV4.split(".").map((b) => parseInt(b))),
-          )
+              new Uint8Array(relay.ipV4.split(".").map((b) => parseInt(b))),
+            )
           : undefined;
         const ipV6 = relay.ipV6
           ? C.Ipv6.new(fromHex(relay.ipV6.replaceAll(":", "")))
@@ -727,10 +795,7 @@ async function createPoolRegistration(
       poolOwners,
       relays,
       metadataHash
-        ? C.PoolMetadata.new(
-          C.Url.new(poolParams.metadataUrl!),
-          metadataHash,
-        )
+        ? C.PoolMetadata.new(C.Url.new(poolParams.metadataUrl!), metadataHash)
         : undefined,
     ),
   );

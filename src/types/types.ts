@@ -172,10 +172,13 @@ export interface ExternalWallet {
 export type SignedMessage = { signature: string; key: string };
 
 export interface Wallet {
+  spentUTxOs?: UTxO[];
+  availUTxOs?: UTxO[];
   address(): Promise<Address>;
   rewardAddress(): Promise<RewardAddress | null>;
   getUtxos(): Promise<UTxO[]>;
-  getUtxosCore(): Promise<C.TransactionUnspentOutputs>;
+  getUtxosCore(chain?: boolean): Promise<C.TransactionUnspentOutputs>;
+  setUtxosFromTransaction(spentUtxos: UTxO[], unspentUtxos: UTxO[]): void;
   getDelegation(): Promise<Delegation>;
   signTx(tx: C.Transaction): Promise<C.TransactionWitnessSet>;
   signMessage(
