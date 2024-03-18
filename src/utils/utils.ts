@@ -29,6 +29,7 @@ import {
   UnixTime,
   UTxO,
   Validator,
+  Wallet,
   WithdrawalValidator,
 } from "../types/mod.ts";
 import { Lucid } from "../lucid/mod.ts";
@@ -58,11 +59,11 @@ export class Utils {
         C.StakeCredential.from_scripthash(C.ScriptHash.from_hex(validatorHash)),
         stakeCredential.type === "Key"
           ? C.StakeCredential.from_keyhash(
-            C.Ed25519KeyHash.from_hex(stakeCredential.hash),
-          )
+              C.Ed25519KeyHash.from_hex(stakeCredential.hash),
+            )
           : C.StakeCredential.from_scripthash(
-            C.ScriptHash.from_hex(stakeCredential.hash),
-          ),
+              C.ScriptHash.from_hex(stakeCredential.hash),
+            ),
       )
         .to_address()
         .to_bech32(undefined);
@@ -85,18 +86,18 @@ export class Utils {
         networkToId(this.lucid.network),
         paymentCredential.type === "Key"
           ? C.StakeCredential.from_keyhash(
-            C.Ed25519KeyHash.from_hex(paymentCredential.hash),
-          )
+              C.Ed25519KeyHash.from_hex(paymentCredential.hash),
+            )
           : C.StakeCredential.from_scripthash(
-            C.ScriptHash.from_hex(paymentCredential.hash),
-          ),
+              C.ScriptHash.from_hex(paymentCredential.hash),
+            ),
         stakeCredential.type === "Key"
           ? C.StakeCredential.from_keyhash(
-            C.Ed25519KeyHash.from_hex(stakeCredential.hash),
-          )
+              C.Ed25519KeyHash.from_hex(stakeCredential.hash),
+            )
           : C.StakeCredential.from_scripthash(
-            C.ScriptHash.from_hex(stakeCredential.hash),
-          ),
+              C.ScriptHash.from_hex(stakeCredential.hash),
+            ),
       )
         .to_address()
         .to_bech32(undefined);
@@ -105,11 +106,11 @@ export class Utils {
         networkToId(this.lucid.network),
         paymentCredential.type === "Key"
           ? C.StakeCredential.from_keyhash(
-            C.Ed25519KeyHash.from_hex(paymentCredential.hash),
-          )
+              C.Ed25519KeyHash.from_hex(paymentCredential.hash),
+            )
           : C.StakeCredential.from_scripthash(
-            C.ScriptHash.from_hex(paymentCredential.hash),
-          ),
+              C.ScriptHash.from_hex(paymentCredential.hash),
+            ),
       )
         .to_address()
         .to_bech32(undefined);
@@ -133,11 +134,11 @@ export class Utils {
       networkToId(this.lucid.network),
       stakeCredential.type === "Key"
         ? C.StakeCredential.from_keyhash(
-          C.Ed25519KeyHash.from_hex(stakeCredential.hash),
-        )
+            C.Ed25519KeyHash.from_hex(stakeCredential.hash),
+          )
         : C.StakeCredential.from_scripthash(
-          C.ScriptHash.from_hex(stakeCredential.hash),
-        ),
+            C.ScriptHash.from_hex(stakeCredential.hash),
+          ),
     )
       .to_address()
       .to_bech32(undefined);
@@ -251,28 +252,25 @@ export function getAddressDetails(address: string): AddressDetails {
     const paymentCredential: Credential =
       parsedAddress.payment_cred().kind() === 0
         ? {
-          type: "Key",
-          hash: toHex(
-            parsedAddress.payment_cred().to_keyhash()!.to_bytes(),
-          ),
-        }
+            type: "Key",
+            hash: toHex(parsedAddress.payment_cred().to_keyhash()!.to_bytes()),
+          }
         : {
-          type: "Script",
-          hash: toHex(
-            parsedAddress.payment_cred().to_scripthash()!.to_bytes(),
-          ),
-        };
-    const stakeCredential: Credential = parsedAddress.stake_cred().kind() === 0
-      ? {
-        type: "Key",
-        hash: toHex(parsedAddress.stake_cred().to_keyhash()!.to_bytes()),
-      }
-      : {
-        type: "Script",
-        hash: toHex(
-          parsedAddress.stake_cred().to_scripthash()!.to_bytes(),
-        ),
-      };
+            type: "Script",
+            hash: toHex(
+              parsedAddress.payment_cred().to_scripthash()!.to_bytes(),
+            ),
+          };
+    const stakeCredential: Credential =
+      parsedAddress.stake_cred().kind() === 0
+        ? {
+            type: "Key",
+            hash: toHex(parsedAddress.stake_cred().to_keyhash()!.to_bytes()),
+          }
+        : {
+            type: "Script",
+            hash: toHex(parsedAddress.stake_cred().to_scripthash()!.to_bytes()),
+          };
     return {
       type: "Base",
       networkId: parsedAddress.to_address().network_id(),
@@ -283,7 +281,9 @@ export function getAddressDetails(address: string): AddressDetails {
       paymentCredential,
       stakeCredential,
     };
-  } catch (_e) { /* pass */ }
+  } catch (_e) {
+    /* pass */
+  }
 
   // Enterprise Address
   try {
@@ -293,17 +293,15 @@ export function getAddressDetails(address: string): AddressDetails {
     const paymentCredential: Credential =
       parsedAddress.payment_cred().kind() === 0
         ? {
-          type: "Key",
-          hash: toHex(
-            parsedAddress.payment_cred().to_keyhash()!.to_bytes(),
-          ),
-        }
+            type: "Key",
+            hash: toHex(parsedAddress.payment_cred().to_keyhash()!.to_bytes()),
+          }
         : {
-          type: "Script",
-          hash: toHex(
-            parsedAddress.payment_cred().to_scripthash()!.to_bytes(),
-          ),
-        };
+            type: "Script",
+            hash: toHex(
+              parsedAddress.payment_cred().to_scripthash()!.to_bytes(),
+            ),
+          };
     return {
       type: "Enterprise",
       networkId: parsedAddress.to_address().network_id(),
@@ -313,7 +311,9 @@ export function getAddressDetails(address: string): AddressDetails {
       },
       paymentCredential,
     };
-  } catch (_e) { /* pass */ }
+  } catch (_e) {
+    /* pass */
+  }
 
   // Pointer Address
   try {
@@ -323,17 +323,15 @@ export function getAddressDetails(address: string): AddressDetails {
     const paymentCredential: Credential =
       parsedAddress.payment_cred().kind() === 0
         ? {
-          type: "Key",
-          hash: toHex(
-            parsedAddress.payment_cred().to_keyhash()!.to_bytes(),
-          ),
-        }
+            type: "Key",
+            hash: toHex(parsedAddress.payment_cred().to_keyhash()!.to_bytes()),
+          }
         : {
-          type: "Script",
-          hash: toHex(
-            parsedAddress.payment_cred().to_scripthash()!.to_bytes(),
-          ),
-        };
+            type: "Script",
+            hash: toHex(
+              parsedAddress.payment_cred().to_scripthash()!.to_bytes(),
+            ),
+          };
     return {
       type: "Pointer",
       networkId: parsedAddress.to_address().network_id(),
@@ -343,7 +341,9 @@ export function getAddressDetails(address: string): AddressDetails {
       },
       paymentCredential,
     };
-  } catch (_e) { /* pass */ }
+  } catch (_e) {
+    /* pass */
+  }
 
   // Reward Address
   try {
@@ -353,17 +353,15 @@ export function getAddressDetails(address: string): AddressDetails {
     const stakeCredential: Credential =
       parsedAddress.payment_cred().kind() === 0
         ? {
-          type: "Key",
-          hash: toHex(
-            parsedAddress.payment_cred().to_keyhash()!.to_bytes(),
-          ),
-        }
+            type: "Key",
+            hash: toHex(parsedAddress.payment_cred().to_keyhash()!.to_bytes()),
+          }
         : {
-          type: "Script",
-          hash: toHex(
-            parsedAddress.payment_cred().to_scripthash()!.to_bytes(),
-          ),
-        };
+            type: "Script",
+            hash: toHex(
+              parsedAddress.payment_cred().to_scripthash()!.to_bytes(),
+            ),
+          };
     return {
       type: "Reward",
       networkId: parsedAddress.to_address().network_id(),
@@ -373,7 +371,9 @@ export function getAddressDetails(address: string): AddressDetails {
       },
       stakeCredential,
     };
-  } catch (_e) { /* pass */ }
+  } catch (_e) {
+    /* pass */
+  }
 
   // Limited support for Byron addresses
   try {
@@ -397,9 +397,67 @@ export function getAddressDetails(address: string): AddressDetails {
         hex: toHex(parsedAddress.to_address().to_bytes()),
       },
     };
-  } catch (_e) { /* pass */ }
+  } catch (_e) {
+    /* pass */
+  }
 
   throw new Error("No address type matched for: " + address);
+}
+
+export function setUtxosFromTransaction(
+  wallet: Wallet,
+  spentUTxOs: UTxO[],
+  unspentUTxOs: UTxO[],
+) {
+  const walletSpentUTxOs: Map<string, UTxO> = wallet.spentUTxOs || new Map();
+  const walletAvailUTxOs: Map<string, UTxO> = wallet.availUTxOs || new Map();
+
+  spentUTxOs.forEach((utxo) =>
+    walletSpentUTxOs.set(`${utxo.txHash}.${utxo.outputIndex}`, utxo),
+  );
+  unspentUTxOs.forEach((utxo) =>
+    walletAvailUTxOs.set(`${utxo.txHash}.${utxo.outputIndex}`, utxo),
+  );
+
+  wallet.spentUTxOs = walletSpentUTxOs;
+  wallet.availUTxOs = walletAvailUTxOs;
+}
+
+export function updateWalletUTxOsForChainingCore(
+  wallet: Wallet,
+  utxos: C.TransactionUnspentOutputs,
+) {
+  const u: UTxO[] = [];
+  for (let i = 0; i < utxos.len(); i++) {
+    u.push(coreToUtxo(utxos.get(i)));
+  }
+
+  const resultUTxOs = C.TransactionUnspentOutputs.new();
+
+  updateWalletUTxOsForChaining(wallet, u).forEach((utxo) =>
+    resultUTxOs.add(utxoToCore(utxo)),
+  );
+
+  //for (let i = 0; i < resultUTxOs.len(); i++) {
+  //  const utxo = resultUTxOs.get(i);
+  //  console.log("Lucid >>> UTXO Avail", utxo.input().to_js_value());
+  //}
+
+  return resultUTxOs;
+}
+
+export function updateWalletUTxOsForChaining(wallet: Wallet, utxos: UTxO[]) {
+  wallet.availUTxOs?.forEach((utxo) => utxos.push(utxo));
+
+  for (let i = utxos.length - 1; i >= 0; i--) {
+    let thisUtxo = utxos[i];
+
+    if (wallet.spentUTxOs?.has(`${thisUtxo.txHash}.${thisUtxo.outputIndex}`)) {
+      utxos.splice(i, 1);
+    }
+  }
+
+  return utxos;
 }
 
 export function paymentCredentialOf(address: Address): Credential {
@@ -575,9 +633,11 @@ export function coreToUtxo(coreUtxo: C.TransactionUnspentOutput): UTxO {
       ? coreUtxo.output().address().as_byron()?.to_base58()!
       : coreUtxo.output().address().to_bech32(undefined),
     datumHash: coreUtxo.output()?.datum()?.as_data_hash()?.to_hex(),
-    datum: coreUtxo.output()?.datum()?.as_data() &&
+    datum:
+      coreUtxo.output()?.datum()?.as_data() &&
       toHex(coreUtxo.output().datum()!.as_data()!.get().to_bytes()),
-    scriptRef: coreUtxo.output()?.script_ref() &&
+    scriptRef:
+      coreUtxo.output()?.script_ref() &&
       fromScriptRef(coreUtxo.output().script_ref()!),
   };
 }
@@ -667,9 +727,7 @@ export function toUnit(
  * Splits unit into policy id, asset name (entire asset name), name (asset name without label) and label if applicable.
  * name will be returned in Hex.
  */
-export function fromUnit(
-  unit: Unit,
-): {
+export function fromUnit(unit: Unit): {
   policyId: PolicyId;
   assetName: string | null;
   name: string | null;

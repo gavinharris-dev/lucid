@@ -539,7 +539,7 @@ export class Tx {
       task = this.tasks.shift();
     }
 
-    const utxos = await this.lucid.wallet.getUtxosCore();
+    const utxos = await this.lucid.wallet.getUtxosCore(options?.chain);
 
     const changeAddress: C.Address = addressFromWithNetworkCheck(
       options?.change?.address || (await this.lucid.wallet.address()),
@@ -609,11 +609,11 @@ export class Tx {
 
       const spentUtxos: UTxO[] = [];
       const unspentUtxos: UTxO[] = [];
+      const utxoLength = walletUtxos.len();
 
       for (let i = 0; i < inputs.len(); i++) {
         const txHash = inputs.get(i).transaction_id().to_hex();
         const index = inputs.get(i).index().to_str();
-        const utxoLength = walletUtxos.len();
 
         for (let j = 0; j < utxoLength; j++) {
           const utxo = walletUtxos.get(j);

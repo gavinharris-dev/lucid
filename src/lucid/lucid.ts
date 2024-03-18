@@ -5,8 +5,11 @@ import {
   fromHex,
   fromUnit,
   paymentCredentialOf,
+  setUtxosFromTransaction,
   toHex,
   toUnit,
+  updateWalletUTxOsForChaining,
+  updateWalletUTxOsForChainingCore,
   Utils,
   utxoToCore,
 } from "../utils/mod.ts";
@@ -252,17 +255,8 @@ export class Lucid {
         );
 
         if (chain) {
-          // Remove spent UTxOs
-          utxos = utxos.filter((utxo) => {
-            return !this.wallet.spentUTxOs?.find(
-              (sUtxo) =>
-                utxo.txHash === sUtxo.txHash &&
-                utxo.outputIndex === sUtxo.outputIndex,
-            );
-          });
-          utxos.push(...(this.wallet.availUTxOs || []));
+          utxos = updateWalletUTxOsForChaining(this.wallet, utxos);
         }
-
         const coreUtxos = C.TransactionUnspentOutputs.new();
         utxos.forEach((utxo) => {
           coreUtxos.add(utxoToCore(utxo));
@@ -271,11 +265,7 @@ export class Lucid {
         return coreUtxos;
       },
       setUtxosFromTransaction(spentUTxOs, unspentUTxOs) {
-        const removedUtxos = this.spentUTxOs || [];
-        const availUtxos = this.availUTxOs || [];
-
-        this.spentUTxOs = [...removedUtxos, ...spentUTxOs];
-        this.availUTxOs = [...availUtxos, ...unspentUTxOs];
+        setUtxosFromTransaction(this, spentUTxOs, unspentUTxOs);
       },
       // deno-lint-ignore require-await
       getDelegation: async (): Promise<Delegation> => {
@@ -356,35 +346,15 @@ export class Lucid {
         ((await api.getUtxos()) || []).forEach((utxo) => {
           const coreUtxo = C.TransactionUnspentOutput.from_bytes(fromHex(utxo));
 
-          if (chain) {
-            const wrappedUTxO = coreToUtxo(coreUtxo);
-            const isSpent = Boolean(
-              this.wallet.spentUTxOs?.find(
-                (u) =>
-                  u.txHash === wrappedUTxO.txHash &&
-                  u.outputIndex === wrappedUTxO.outputIndex,
-              ),
-            );
-            if (isSpent) return;
-          }
           utxos.add(coreUtxo);
         });
 
-        if (chain) {
-          // Add in the Unpent UTxO's not yet on chain
-          this.wallet.availUTxOs?.forEach((u) => {
-            utxos.add(utxoToCore(u));
-          });
-        }
-
-        return utxos;
+        return chain
+          ? updateWalletUTxOsForChainingCore(this.wallet, utxos)
+          : utxos;
       },
       setUtxosFromTransaction(spentUTxOs, unspentUTxOs) {
-        const removedUtxos = this.spentUTxOs || [];
-        const availUtxos = this.availUTxOs || [];
-
-        this.spentUTxOs = [...removedUtxos, ...spentUTxOs];
-        this.availUTxOs = [...availUtxos, ...unspentUTxOs];
+        setUtxosFromTransaction(this, spentUTxOs, unspentUTxOs);
       },
       getDelegation: async (): Promise<Delegation> => {
         const rewardAddr = await this.wallet.rewardAddress();
@@ -454,11 +424,7 @@ export class Lucid {
         return utxos ? utxos : await this.utxosAt(paymentCredentialOf(address));
       },
       setUtxosFromTransaction(spentUTxOs, unspentUTxOs) {
-        const removedUtxos = this.spentUTxOs || [];
-        const availUtxos = this.availUTxOs || [];
-
-        this.spentUTxOs = [...removedUtxos, ...spentUTxOs];
-        this.availUTxOs = [...availUtxos, ...unspentUTxOs];
+        setUtxosFromTransaction(this, spentUTxOs, unspentUTxOs);
       },
       getUtxosCore: async (chain): Promise<C.TransactionUnspentOutputs> => {
         const coreUtxos = C.TransactionUnspentOutputs.new();
@@ -468,27 +434,14 @@ export class Lucid {
         ).forEach((utxo) => {
           const coreUtxo = utxoToCore(utxo); // C.TransactionUnspentOutput.from_bytes(fromHex(utxo));
 
-          if (chain) {
-            const isSpent = Boolean(
-              this.wallet.spentUTxOs?.find(
-                (u) =>
-                  u.txHash === utxo.txHash &&
-                  u.outputIndex === utxo.outputIndex,
-              ),
-            );
-            if (isSpent) return;
-          }
           coreUtxos.add(coreUtxo);
         });
 
-        if (chain) {
-          this.wallet.availUTxOs?.forEach((utxo) => {
-            coreUtxos.add(utxoToCore(utxo));
-          });
-        }
+        return chain
+          ? updateWalletUTxOsForChainingCore(this.wallet, coreUtxos)
+          : coreUtxos;
 
         // coreUtxos.add(utxoToCore(utxo)));
-        return coreUtxos;
       },
       getDelegation: async (): Promise<Delegation> => {
         const rewardAddr = await this.wallet.rewardAddress();
@@ -556,35 +509,19 @@ export class Lucid {
       // deno-lint-ignore require-await
       getUtxos: async (): Promise<UTxO[]> =>
         this.utxosAt(paymentCredentialOf(address)),
-      setUtxosFromTransaction(spentUtxos, unspentUtxos) {
-        this.spentUTxOs = [...(this.spentUTxOs || []), ...spentUtxos];
-        this.availUTxOs = [...(this.availUTxOs || []), ...unspentUtxos];
+      setUtxosFromTransaction(spentUTxOs, unspentUTxOs) {
+        setUtxosFromTransaction(this, spentUTxOs, unspentUTxOs);
       },
       getUtxosCore: async (chain): Promise<C.TransactionUnspentOutputs> => {
         const coreUtxos = C.TransactionUnspentOutputs.new();
         (await this.utxosAt(paymentCredentialOf(address))).forEach((utxo) => {
           const coreUtxo = utxoToCore(utxo); // C.TransactionUnspentOutput.from_bytes(fromHex(utxo));
-
-          if (chain) {
-            const isSpent = Boolean(
-              this.wallet.spentUTxOs?.find(
-                (u) =>
-                  u.txHash === utxo.txHash &&
-                  u.outputIndex === utxo.outputIndex,
-              ),
-            );
-            if (isSpent) return;
-          }
           coreUtxos.add(coreUtxo);
         });
 
-        if (chain) {
-          this.wallet.availUTxOs?.forEach((utxo) => {
-            coreUtxos.add(utxoToCore(utxo));
-          });
-        }
-
-        return coreUtxos;
+        return chain
+          ? updateWalletUTxOsForChainingCore(this.wallet, coreUtxos)
+          : coreUtxos;
       },
       getDelegation: async (): Promise<Delegation> => {
         const rewardAddr = await this.wallet.rewardAddress();
