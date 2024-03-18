@@ -602,7 +602,7 @@ export class Tx {
     const txComplete = new TxComplete(this.lucid, txb);
 
     if (options?.chain) {
-      const walletUtxos = await this.lucid.wallet.getUtxosCore();
+      const walletUtxos = await this.lucid.wallet.getUtxosCore(true);
       const body = txb.body();
       const inputs = body.inputs();
       const outputs = body.outputs();
@@ -617,12 +617,17 @@ export class Tx {
 
         for (let j = 0; j < utxoLength; j++) {
           const utxo = walletUtxos.get(j);
-
           const wrappedUTxo = coreToUtxo(utxo);
 
+          //console.log(
+          //  ">>>> Lucid: ",
+          //  wrappedUTxo.txHash === txHash,
+          //  wrappedUTxo.outputIndex.toString(10),
+          //  index,
+          //);
           if (
             wrappedUTxo.txHash === txHash &&
-            wrappedUTxo.outputIndex.toString(10) == index
+            wrappedUTxo.outputIndex.toString(10) === index
           ) {
             spentUtxos.push(wrappedUTxo);
           }
